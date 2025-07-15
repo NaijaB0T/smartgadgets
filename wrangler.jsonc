@@ -1,0 +1,30 @@
+{
+  "name": "smartgadgets",
+  "main": "./dist/index.js",
+  "assets": {
+    "directory": "./dist"
+  },
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "vars": {
+    "EXAMPLE_VALUE": "example_value"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "smartgadgets-db",
+      "database_id": "25a69c19-203b-4ccb-a603-a6fccb5f125d"
+    }
+  ],
+  "workflows": [
+    {
+      "name": "saas-admin-template-customer-workflow",
+      "binding": "CUSTOMER_WORKFLOW",
+      "class_name": "CustomerWorkflow"
+    }
+  ]
+}
