@@ -1,0 +1,364 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { ProductService } from '@/lib/services/product';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EditProduct } from '@/components/admin/edit-product';
+
+const { DB, API_TOKEN } = Astro.locals.runtime.env;
+const { id } = Astro.params;
+
+if (!id || isNaN(parseInt(id))) {
+  return new Response('Invalid product ID', { status: 400 });
+}
+
+const productService = new ProductService(DB);
+const product = await productService.getProductById(parseInt(id));
+
+if (!product) {
+  return new Response('Product not found', { status: 404 });
+}
+
+if (!API_TOKEN) {
+  return new Response('API token not configured', { status: 500 });
+}
+
+const formatPrice = (price: number) => {
+  return `$${(price / 100).toFixed(2)}`;
+};
+
+const getStatusBadge = (status: string) => {
+  const variants = {
+    active: 'default',
+    inactive: 'secondary',
+    out_of_stock: 'destructive',
+    discontinued: 'outline',
+  } as const;
+
+  return variants[status as keyof typeof variants] || 'secondary';
+};
+---
+
+<Layout title={product.name}>
+  <div class="space-y-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">{product.name}</h1>
+        <p class="text-muted-foreground mt-1">{product.category_name}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <Badge variant={getStatusBadge(product.status)}>
+          {product.status.replace('_', ' ').toUpperCase()}
+        </Badge>
+        <button id="edit-toggle" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+          Edit Product
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Form (hidden by default) -->
+    <div id="edit-form" class="hidden">
+      <div class="bg-white rounded-lg border p-6">
+        <h2 class="text-2xl font-bold mb-6">Edit Product</h2>
+        <form id="edit-product-form" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Product Name</label>
+              <input type="text" id="edit-name" name="name" value={product.name} class="w-full p-2 border rounded-md" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">SKU</label>
+              <input type="text" id="edit-sku" name="sku" value={product.sku || ''} class="w-full p-2 border rounded-md">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-2">Short Description</label>
+            <textarea id="edit-short-description" name="short_description" class="w-full p-2 border rounded-md" rows="2">{product.short_description || ''}</textarea>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-2">Description</label>
+            <textarea id="edit-description" name="description" class="w-full p-2 border rounded-md" rows="4">{product.description || ''}</textarea>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Price ($)</label>
+              <input type="number" id="edit-price" name="price" value={(product.price / 100).toFixed(2)} step="0.01" class="w-full p-2 border rounded-md" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">Compare at Price ($)</label>
+              <input type="number" id="edit-compare-price" name="compare_at_price" value={product.compare_at_price ? (product.compare_at_price / 100).toFixed(2) : ''} step="0.01" class="w-full p-2 border rounded-md">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Stock Quantity</label>
+              <input type="number" id="edit-stock" name="stock_quantity" value={product.stock_quantity} min="0" class="w-full p-2 border rounded-md" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">Brand</label>
+              <input type="text" id="edit-brand" name="brand" value={product.brand || ''} class="w-full p-2 border rounded-md">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">Model</label>
+              <input type="text" id="edit-model" name="model" value={product.model || ''} class="w-full p-2 border rounded-md">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Status</label>
+              <select id="edit-status" name="status" class="w-full p-2 border rounded-md" required>
+                <option value="active" selected={product.status === 'active'}>Active</option>
+                <option value="inactive" selected={product.status === 'inactive'}>Inactive</option>
+                <option value="out_of_stock" selected={product.status === 'out_of_stock'}>Out of Stock</option>
+                <option value="discontinued" selected={product.status === 'discontinued'}>Discontinued</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">Weight (grams)</label>
+              <input type="number" id="edit-weight" name="weight" value={product.weight || ''} min="0" class="w-full p-2 border rounded-md">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-2">Featured Image URL</label>
+            <input type="url" id="edit-featured-image" name="featured_image" value={product.featured_image || ''} class="w-full p-2 border rounded-md">
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" id="edit-featured" name="is_featured" checked={product.is_featured} class="w-4 h-4">
+            <label for="edit-featured" class="text-sm font-medium">Featured Product</label>
+          </div>
+          
+          <div class="flex justify-end space-x-2">
+            <button type="button" id="cancel-edit" class="px-4 py-2 border rounded-md hover:bg-gray-50">Cancel</button>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update Product</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Product Details (shown by default) -->
+    <div id="product-details" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <!-- Product Image -->
+      <div class="space-y-4">
+        {product.featured_image ? (
+          <div class="aspect-square rounded-lg border overflow-hidden bg-gray-50">
+            <img 
+              src={product.featured_image} 
+              alt={product.name}
+              class="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div class="aspect-square rounded-lg border bg-gray-50 flex items-center justify-center">
+            <span class="text-gray-400">No image available</span>
+          </div>
+        )}
+      </div>
+
+      <!-- Product Details -->
+      <div class="space-y-6">
+        <div>
+          <h2 class="text-xl font-semibold mb-3">Product Information</h2>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell class="font-medium">Name</TableCell>
+                <TableCell>{product.name}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">SKU</TableCell>
+                <TableCell>{product.sku || 'Not set'}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Price</TableCell>
+                <TableCell>
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg font-semibold">{formatPrice(product.price)}</span>
+                    {product.compare_at_price && (
+                      <span class="text-sm text-muted-foreground line-through">
+                        {formatPrice(product.compare_at_price)}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Stock</TableCell>
+                <TableCell>
+                  <span class={product.stock_quantity <= 5 ? 'text-red-600 font-medium' : ''}>
+                    {product.stock_quantity} units
+                  </span>
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Brand</TableCell>
+                <TableCell>{product.brand || 'Not specified'}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Model</TableCell>
+                <TableCell>{product.model || 'Not specified'}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Weight</TableCell>
+                <TableCell>{product.weight ? `${product.weight}g` : 'Not specified'}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Featured</TableCell>
+                <TableCell>
+                  {product.is_featured ? (
+                    <Badge variant="outline">Featured</Badge>
+                  ) : (
+                    <span class="text-gray-400">No</span>
+                  )}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell class="font-medium">Created</TableCell>
+                <TableCell>{new Date(product.created_at).toLocaleDateString()}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+
+        <!-- Product Descriptions -->
+        {product.short_description && (
+          <div>
+            <h3 class="text-lg font-semibold mb-2">Short Description</h3>
+            <p class="text-gray-700">{product.short_description}</p>
+          </div>
+        )}
+
+        {product.description && (
+          <div>
+            <h3 class="text-lg font-semibold mb-2">Description</h3>
+            <p class="text-gray-700 leading-relaxed">{product.description}</p>
+          </div>
+        )}
+
+        <!-- Product Attributes -->
+        {product.attributes && product.attributes.length > 0 && (
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Specifications</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Attribute</TableHead>
+                  <TableHead>Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {product.attributes.map((attr) => (
+                  <TableRow key={attr.id}>
+                    <TableCell class="font-medium">{attr.attribute_name}</TableCell>
+                    <TableCell>{attr.attribute_value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        <!-- Reviews Summary -->
+        {product.review_count && product.review_count > 0 && (
+          <div>
+            <h3 class="text-lg font-semibold mb-2">Customer Reviews</h3>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl font-bold">{product.average_rating || 0}</span>
+              <span class="text-yellow-500">★★★★★</span>
+              <span class="text-muted-foreground">({product.review_count} reviews)</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <div slot="actions">
+    <a href="/admin/products" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+      ← Back to Products
+    </a>
+  </div>
+
+  <script define:vars={{ productId: id, apiToken: API_TOKEN }}>
+    document.addEventListener('DOMContentLoaded', function() {
+      
+      const editToggle = document.getElementById('edit-toggle');
+      const editForm = document.getElementById('edit-form');
+      const productDetails = document.getElementById('product-details');
+      const cancelEdit = document.getElementById('cancel-edit');
+      const editProductForm = document.getElementById('edit-product-form');
+      
+      function showEdit() {
+        editForm.classList.remove('hidden');
+        productDetails.classList.add('hidden');
+        editToggle.textContent = 'Cancel Edit';
+      }
+      
+      function showDetails() {
+        editForm.classList.add('hidden');
+        productDetails.classList.remove('hidden');
+        editToggle.textContent = 'Edit Product';
+      }
+      
+      editToggle.addEventListener('click', function() {
+        if (editForm.classList.contains('hidden')) {
+          showEdit();
+        } else {
+          showDetails();
+        }
+      });
+      
+      cancelEdit.addEventListener('click', function() {
+        showDetails();
+      });
+      
+      editProductForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(editProductForm);
+        const data = {
+          name: formData.get('name'),
+          sku: formData.get('sku'),
+          short_description: formData.get('short_description'),
+          description: formData.get('description'),
+          price: Math.round(parseFloat(formData.get('price')) * 100), // Convert to cents
+          compare_at_price: formData.get('compare_at_price') ? Math.round(parseFloat(formData.get('compare_at_price')) * 100) : null,
+          stock_quantity: parseInt(formData.get('stock_quantity')),
+          brand: formData.get('brand'),
+          model: formData.get('model'),
+          status: formData.get('status'),
+          weight: formData.get('weight') ? parseInt(formData.get('weight')) : null,
+          featured_image: formData.get('featured_image'),
+          is_featured: formData.get('is_featured') === 'on'
+        };
+        
+        try {
+          const response = await fetch(`/api/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiToken}`
+            },
+            body: JSON.stringify(data)
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            const error = await response.json();
+            alert('Error updating product: ' + (error.message || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Error updating product. Please try again.');
+        }
+      });
+    });
+  </script>
+</Layout>

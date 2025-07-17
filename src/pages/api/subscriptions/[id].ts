@@ -1,7 +1,7 @@
 import { validateApiTokenResponse } from "@/lib/api";
 import { SubscriptionService } from "@/lib/services/subscription";
 
-export async function GET({ locals, params, request }) {
+export async function GET({ locals, params, request }: any) {
   const { id } = params;
   const { API_TOKEN, DB } = locals.runtime.env;
 

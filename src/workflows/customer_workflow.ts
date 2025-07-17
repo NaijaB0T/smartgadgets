@@ -19,7 +19,7 @@ export class CustomerWorkflow extends WorkflowEntrypoint<Env, Params> {
       const resp = await DB.prepare(`SELECT * FROM customers WHERE id = ?`)
         .bind(id)
         .run();
-      if (resp.success) return resp.results[0];
+      if (resp.success) return resp.results[0] as any;
       return null;
     });
 

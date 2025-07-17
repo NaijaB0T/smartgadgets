@@ -1,7 +1,7 @@
 import { validateApiTokenResponse } from "@/lib/api";
 import { SubscriptionService } from "@/lib/services/subscription";
 
-export async function GET({ locals, params, request }) {
+export async function GET({ locals, params, request }: any) {
   const { API_TOKEN, DB } = locals.runtime.env;
 
   const invalidTokenResponse = await validateApiTokenResponse(
@@ -23,7 +23,7 @@ export async function GET({ locals, params, request }) {
   }
 }
 
-export async function POST({ locals, request }) {
+export async function POST({ locals, request }: any) {
   const { API_TOKEN, DB } = locals.runtime.env;
 
   const invalidTokenResponse = await validateApiTokenResponse(
@@ -47,7 +47,7 @@ export async function POST({ locals, request }) {
   } catch (error) {
     return Response.json(
       {
-        message: error.message || "Failed to create subscription",
+        message: (error as any)?.message || "Failed to create subscription",
         success: false,
       },
       { status: 500 },

@@ -1,0 +1,281 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Shopping Cart | SmartGadgets">
+  <main class="min-h-screen bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
+
+      <!-- Cart Content -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Cart Items -->
+        <div class="lg:col-span-2">
+          <div class="bg-white rounded-lg shadow-sm" id="cart-items-container">
+            <!-- Loading state -->
+            <div class="p-8 text-center" id="cart-loading">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p class="mt-2 text-gray-600">Loading cart...</p>
+            </div>
+
+            <!-- Empty cart state -->
+            <div class="p-8 text-center hidden" id="empty-cart">
+              <div class="text-gray-400 mb-4">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 8M7 13l2.5 8m6-8v8a2 2 0 01-2 2H9a2 2 0 01-2-2v-8m8-8V3a2 2 0 00-2-2H9a2 2 0 00-2 2v2"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
+              <p class="text-gray-600 mb-6">Looks like you haven't added any items to your cart yet.</p>
+              <a href="/shop" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                Continue Shopping
+              </a>
+            </div>
+
+            <!-- Cart items list -->
+            <div class="hidden" id="cart-items-list">
+              <div class="p-6 border-b">
+                <h2 class="text-lg font-semibold">Items in your cart</h2>
+              </div>
+              <div id="cart-items" class="divide-y">
+                <!-- Cart items will be dynamically inserted here -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="lg:col-span-1">
+          <div class="bg-white rounded-lg shadow-sm p-6 sticky top-24" id="order-summary">
+            <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+            
+            <div class="space-y-3 mb-6">
+              <div class="flex justify-between text-gray-600">
+                <span>Subtotal (<span id="summary-item-count">0</span> items)</span>
+                <span id="summary-subtotal">$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-600">
+                <span>Shipping</span>
+                <span class="text-green-600">Free</span>
+              </div>
+              <div class="flex justify-between text-gray-600">
+                <span>Tax</span>
+                <span>$0.00</span>
+              </div>
+              <hr>
+              <div class="flex justify-between text-lg font-semibold">
+                <span>Total</span>
+                <span id="summary-total">$0.00</span>
+              </div>
+            </div>
+
+            <!-- Discount Code -->
+            <div class="mb-6">
+              <label for="discount-code" class="block text-sm font-medium text-gray-700 mb-2">
+                Discount Code
+              </label>
+              <div class="flex">
+                <input type="text" 
+                       id="discount-code" 
+                       placeholder="Enter code"
+                       class="flex-1 border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-r-lg hover:bg-gray-300 transition-colors"
+                        id="apply-discount">
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <!-- Checkout Button -->
+            <button class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    id="checkout-btn" 
+                    disabled>
+              Proceed to Checkout
+            </button>
+
+            <!-- Continue Shopping -->
+            <a href="/shop" class="block text-center mt-4 text-blue-600 hover:underline">
+              Continue Shopping
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Import CartService dynamically
+    import('/src/lib/services/cart.ts').then(module => {
+      const cartService = new module.CartService();
+      
+      // DOM elements
+      const cartLoading = document.getElementById('cart-loading');
+      const emptyCart = document.getElementById('empty-cart');
+      const cartItemsList = document.getElementById('cart-items-list');
+      const cartItems = document.getElementById('cart-items');
+      const summaryItemCount = document.getElementById('summary-item-count');
+      const summarySubtotal = document.getElementById('summary-subtotal');
+      const summaryTotal = document.getElementById('summary-total');
+      const checkoutBtn = document.getElementById('checkout-btn');
+      const discountCode = document.getElementById('discount-code');
+      const applyDiscount = document.getElementById('apply-discount');
+
+      function formatPrice(cents) {
+        return `$${(cents / 100).toFixed(2)}`;
+      }
+
+      function createCartItemHTML(item) {
+        return `
+          <div class="p-6 cart-item" data-product-id="${item.id}">
+            <div class="flex items-center space-x-4">
+              <div class="flex-shrink-0">
+                ${item.image ? 
+                  `<img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-cover rounded" />` :
+                  `<div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                     <span class="text-gray-400 text-xs">No Image</span>
+                   </div>`
+                }
+              </div>
+              
+              <div class="flex-1">
+                <h3 class="font-medium text-gray-900">
+                  <a href="/product/${item.slug}" class="hover:text-blue-600">${item.name}</a>
+                </h3>
+                <p class="text-gray-600 text-sm">Price: ${formatPrice(item.price)}</p>
+              </div>
+
+              <div class="flex items-center space-x-3">
+                <!-- Quantity Controls -->
+                <div class="flex items-center border border-gray-300 rounded">
+                  <button class="px-2 py-1 hover:bg-gray-100 qty-decrease" data-product-id="${item.id}">-</button>
+                  <span class="px-3 py-1 border-l border-r border-gray-300 qty-display">${item.quantity}</span>
+                  <button class="px-2 py-1 hover:bg-gray-100 qty-increase" data-product-id="${item.id}" 
+                          ${item.quantity >= item.max_quantity ? 'disabled class="opacity-50 cursor-not-allowed"' : ''}>+</button>
+                </div>
+
+                <!-- Item Total -->
+                <div class="text-right">
+                  <div class="font-medium">${formatPrice(item.price * item.quantity)}</div>
+                  ${item.quantity >= item.max_quantity ? 
+                    '<div class="text-xs text-red-600">Max quantity</div>' : ''
+                  }
+                </div>
+
+                <!-- Remove Button -->
+                <button class="text-red-600 hover:text-red-800 remove-item" data-product-id="${item.id}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function updateCartDisplay() {
+        const cart = cartService.getCart();
+        
+        // Hide loading
+        if (cartLoading) cartLoading.style.display = 'none';
+        
+        if (cart.items.length === 0) {
+          // Show empty cart
+          if (emptyCart) emptyCart.classList.remove('hidden');
+          if (cartItemsList) cartItemsList.classList.add('hidden');
+          if (checkoutBtn) checkoutBtn.disabled = true;
+        } else {
+          // Show cart items
+          if (emptyCart) emptyCart.classList.add('hidden');
+          if (cartItemsList) cartItemsList.classList.remove('hidden');
+          if (checkoutBtn) checkoutBtn.disabled = false;
+          
+          // Populate cart items
+          if (cartItems) {
+            cartItems.innerHTML = cart.items.map(item => createCartItemHTML(item)).join('');
+          }
+
+          // Update summary
+          if (summaryItemCount) summaryItemCount.textContent = cart.item_count;
+          if (summarySubtotal) summarySubtotal.textContent = formatPrice(cart.total);
+          if (summaryTotal) summaryTotal.textContent = formatPrice(cart.total);
+        }
+
+        // Attach event listeners to cart item controls
+        attachCartItemListeners();
+      }
+
+      function attachCartItemListeners() {
+        // Quantity decrease buttons
+        document.querySelectorAll('.qty-decrease').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const productId = parseInt(this.dataset.productId);
+            const currentQty = parseInt(this.nextElementSibling.textContent);
+            if (currentQty > 1) {
+              cartService.updateQuantity(productId, currentQty - 1);
+              updateCartDisplay();
+            }
+          });
+        });
+
+        // Quantity increase buttons
+        document.querySelectorAll('.qty-increase').forEach(btn => {
+          btn.addEventListener('click', function() {
+            if (!this.disabled) {
+              const productId = parseInt(this.dataset.productId);
+              const currentQty = parseInt(this.previousElementSibling.textContent);
+              cartService.updateQuantity(productId, currentQty + 1);
+              updateCartDisplay();
+            }
+          });
+        });
+
+        // Remove item buttons
+        document.querySelectorAll('.remove-item').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const productId = parseInt(this.dataset.productId);
+            if (confirm('Are you sure you want to remove this item from your cart?')) {
+              cartService.removeItem(productId);
+              updateCartDisplay();
+            }
+          });
+        });
+      }
+
+      // Checkout button
+      if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', function() {
+          window.location.href = '/checkout';
+        });
+      }
+
+      // Discount code (placeholder functionality)
+      if (applyDiscount) {
+        applyDiscount.addEventListener('click', function() {
+          const code = discountCode.value.trim();
+          if (code) {
+            // Placeholder for discount code functionality
+            // This will be implemented in Batch 2
+            alert('Discount code functionality will be implemented in Batch 2!');
+          }
+        });
+      }
+
+      // Initialize cart display
+      updateCartDisplay();
+
+      // Listen for cart updates from other pages
+      window.addEventListener('cartUpdated', function(event) {
+        updateCartDisplay();
+      });
+      
+    }).catch(error => {
+      console.error('Error loading cart service:', error);
+      // Hide loading and show error
+      if (cartLoading) cartLoading.style.display = 'none';
+      if (emptyCart) emptyCart.classList.remove('hidden');
+    });
+  });
+</script>

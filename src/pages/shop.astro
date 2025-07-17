@@ -1,0 +1,365 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { ProductService } from '../lib/services/product';
+import { CategoryService } from '../lib/services/category';
+
+const url = new URL(Astro.request.url);
+const category = url.searchParams.get('category') || undefined;
+const search = url.searchParams.get('search') || undefined;
+const price = url.searchParams.get('price') || undefined;
+const sort = url.searchParams.get('sort') || 'newest';
+const page = parseInt(url.searchParams.get('page') || '1');
+const limit = 12;
+
+const { DB } = Astro.locals.runtime.env;
+
+const productService = new ProductService(DB);
+const categoryService = new CategoryService(DB);
+
+// Build product query parameters
+const productParams: any = {
+  category,
+  search,
+  status: 'active',
+  limit,
+  offset: (page - 1) * limit
+};
+
+// Add price filtering
+if (price) {
+  const [minPrice, maxPrice] = price.split('-').map(p => p === '+' ? null : parseInt(p));
+  productParams.minPrice = minPrice ? minPrice * 100 : 0; // Convert to cents
+  productParams.maxPrice = maxPrice ? maxPrice * 100 : null;
+}
+
+// Add sorting
+switch (sort) {
+  case 'price-low':
+    productParams.sortBy = 'price';
+    productParams.sortOrder = 'ASC';
+    break;
+  case 'price-high':
+    productParams.sortBy = 'price';
+    productParams.sortOrder = 'DESC';
+    break;
+  case 'popular':
+    productParams.sortBy = 'is_featured';
+    productParams.sortOrder = 'DESC';
+    break;
+  default:
+    productParams.sortBy = 'created_at';
+    productParams.sortOrder = 'DESC';
+}
+
+const result = await productService.getAllProducts(productParams);
+const categoriesResult = await categoryService.getAllCategories();
+const categories = categoriesResult.data;
+const selectedCategory = category ? categories.find(c => c.slug === category) : null;
+---
+
+<Layout title={`Shop ${selectedCategory ? `- ${selectedCategory.name}` : ''} | SmartGadgets`}>
+  <main class="min-h-screen bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+      <!-- Page Header -->
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+          {selectedCategory ? selectedCategory.name : 'All Products'}
+        </h1>
+        <p class="text-gray-600">
+          {search ? `Search results for "${search}"` : 'Discover our latest electronics and accessories'}
+        </p>
+      </div>
+
+      <div class="flex flex-col lg:flex-row gap-8">
+        <!-- Filters Sidebar -->
+        <aside class="lg:w-64 flex-shrink-0">
+          <div class="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+            <h2 class="text-lg font-semibold mb-4">Filters</h2>
+            
+            <!-- Category Filter -->
+            <div class="mb-6">
+              <h3 class="font-medium mb-3">Categories</h3>
+              <div class="space-y-2">
+                <a href="/shop" class={`block py-2 px-3 rounded ${!category ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                  All Products
+                </a>
+                {categories.map((cat) => (
+                  <a href={`/shop?category=${cat.slug}`} 
+                     class={`block py-2 px-3 rounded ${category === cat.slug ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                    {cat.name} ({cat.product_count})
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <!-- Price Filter -->
+            <div class="mb-6">
+              <h3 class="font-medium mb-3">Price Range</h3>
+              <form id="price-filter-form">
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="price" value="" class="mr-2" {!price ? 'checked' : ''}>
+                    All Prices
+                  </label>
+                </div>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="price" value="0-50" class="mr-2" {price === '0-50' ? 'checked' : ''}>
+                    Under $50
+                  </label>
+                </div>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="price" value="50-200" class="mr-2" {price === '50-200' ? 'checked' : ''}>
+                    $50 - $200
+                  </label>
+                </div>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="price" value="200-500" class="mr-2" {price === '200-500' ? 'checked' : ''}>
+                    $200 - $500
+                  </label>
+                </div>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="price" value="500-1000" class="mr-2" {price === '500-1000' ? 'checked' : ''}>
+                    $500 - $1000
+                  </label>
+                </div>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="price" value="1000+" class="mr-2" {price === '1000+' ? 'checked' : ''}>
+                    $1000+
+                  </label>
+                </div>
+              </form>
+            </div>
+
+            <!-- Sort Options -->
+            <div class="mb-6">
+              <h3 class="font-medium mb-3">Sort By</h3>
+              <select class="w-full border border-gray-300 rounded-lg px-3 py-2" id="sort-select">
+                <option value="newest" {sort === 'newest' ? 'selected' : ''}>Newest First</option>
+                <option value="price-low" {sort === 'price-low' ? 'selected' : ''}>Price: Low to High</option>
+                <option value="price-high" {sort === 'price-high' ? 'selected' : ''}>Price: High to Low</option>
+                <option value="popular" {sort === 'popular' ? 'selected' : ''}>Most Popular</option>
+              </select>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Products Grid -->
+        <div class="flex-1">
+          <!-- Results Header -->
+          <div class="flex justify-between items-center mb-6">
+            <p class="text-gray-600">
+              Showing {((page - 1) * limit) + 1}-{Math.min(page * limit, result.total)} of {result.total} products
+            </p>
+            <div class="flex space-x-2">
+              <button id="grid-view" class="p-2 border rounded bg-blue-50 text-blue-600">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+              </button>
+              <button id="list-view" class="p-2 border rounded text-gray-400">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Products Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="products-grid">
+            {result.products.map((product) => (
+              <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
+                <a href={`/product/${product.slug}`} class="block">
+                  <div class="aspect-w-1 aspect-h-1 relative">
+                    {product.featured_image ? (
+                      <img src={product.featured_image} alt={product.name} 
+                           class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-400">No Image</span>
+                      </div>
+                    )}
+                    {product.compare_at_price && product.compare_at_price > product.price && (
+                      <div class="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
+                        Save ${((product.compare_at_price - product.price) / 100).toFixed(0)}
+                      </div>
+                    )}
+                    {product.is_featured && (
+                      <div class="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-sm font-medium">
+                        Featured
+                      </div>
+                    )}
+                  </div>
+                </a>
+                
+                <div class="p-4">
+                  <a href={`/product/${product.slug}`}>
+                    <h3 class="font-semibold text-lg mb-2 line-clamp-2 hover:text-blue-600">{product.name}</h3>
+                  </a>
+                  <p class="text-gray-600 text-sm mb-3 line-clamp-2">{product.short_description}</p>
+                  
+                  <div class="flex items-center justify-between mb-3">
+                    <div>
+                      <span class="text-2xl font-bold text-blue-600">
+                        ${(product.price / 100).toFixed(2)}
+                      </span>
+                      {product.compare_at_price && (
+                        <span class="text-sm text-gray-500 line-through ml-2">
+                          ${(product.compare_at_price / 100).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    {product.stock_quantity <= 5 && product.stock_quantity > 0 && (
+                      <span class="text-red-600 text-sm font-medium">Only {product.stock_quantity} left</span>
+                    )}
+                  </div>
+
+                  {product.stock_quantity > 0 ? (
+                    <button class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors cart-add-btn"
+                            data-product-id={product.id}
+                            data-product-name={product.name}
+                            data-product-price={product.price}
+                            data-product-image={product.featured_image}
+                            data-product-slug={product.slug}
+                            data-stock-quantity={product.stock_quantity}>
+                      Add to Cart
+                    </button>
+                  ) : (
+                    <button class="w-full bg-gray-400 text-white py-2 rounded-lg cursor-not-allowed" disabled>
+                      Out of Stock
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <!-- No Results -->
+          {result.products.length === 0 && (
+            <div class="text-center py-12">
+              <div class="text-gray-400 mb-4">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.08-2.33m-.92 1.06l5.83-5.83a3 3 0 014.24 0l5.83 5.83m-1.41 1.41l-2.83-2.83a3 3 0 00-4.24 0l-2.83 2.83m8.49-3.54c0 1.06-.43 2.08-1.18 2.83l-1.41-1.41c.45-.45.71-1.06.71-1.69 0-.63-.26-1.24-.71-1.69l-1.41 1.41c.75.75 1.18 1.77 1.18 2.83z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+              <p class="text-gray-600 mb-4">Try adjusting your search or filter criteria</p>
+              <a href="/shop" class="text-blue-600 hover:underline">Clear all filters</a>
+            </div>
+          )}
+
+          <!-- Pagination -->
+          {result.total > limit && (
+            <div class="mt-12 flex justify-center">
+              <nav class="flex space-x-2">
+                {page > 1 && (
+                  <a href={`/shop?${new URLSearchParams({...Object.fromEntries(url.searchParams), page: (page - 1).toString()}).toString()}`}
+                     class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                    Previous
+                  </a>
+                )}
+                
+                {Array.from({ length: Math.ceil(result.total / limit) }, (_, i) => i + 1).map((pageNum) => (
+                  <a href={`/shop?${new URLSearchParams({...Object.fromEntries(url.searchParams), page: pageNum.toString()}).toString()}`}
+                     class={`px-4 py-2 border rounded-lg ${pageNum === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                    {pageNum}
+                  </a>
+                ))}
+                
+                {page < Math.ceil(result.total / limit) && (
+                  <a href={`/shop?${new URLSearchParams({...Object.fromEntries(url.searchParams), page: (page + 1).toString()}).toString()}`}
+                     class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                    Next
+                  </a>
+                )}
+              </nav>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Price filter functionality
+    const priceForm = document.getElementById('price-filter-form');
+    if (priceForm) {
+      priceForm.addEventListener('change', function(e) {
+        const selectedPrice = e.target.value;
+        const url = new URL(window.location);
+        if (selectedPrice) {
+          url.searchParams.set('price', selectedPrice);
+        } else {
+          url.searchParams.delete('price');
+        }
+        url.searchParams.delete('page'); // Reset to first page
+        window.location.href = url.toString();
+      });
+    }
+
+    // Sort functionality
+    const sortSelect = document.getElementById('sort-select');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function(e) {
+        const sortValue = e.target.value;
+        const url = new URL(window.location);
+        url.searchParams.set('sort', sortValue);
+        url.searchParams.delete('page'); // Reset to first page
+        window.location.href = url.toString();
+      });
+    }
+
+    // View toggle functionality
+    const gridView = document.getElementById('grid-view');
+    const listView = document.getElementById('list-view');
+    const productsGrid = document.getElementById('products-grid');
+
+    if (gridView) {
+      gridView.addEventListener('click', function() {
+        gridView.classList.add('bg-blue-50', 'text-blue-600');
+        gridView.classList.remove('text-gray-400');
+        listView.classList.remove('bg-blue-50', 'text-blue-600');
+        listView.classList.add('text-gray-400');
+        productsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6';
+      });
+    }
+
+    if (listView) {
+      listView.addEventListener('click', function() {
+        listView.classList.add('bg-blue-50', 'text-blue-600');
+        listView.classList.remove('text-gray-400');
+        gridView.classList.remove('bg-blue-50', 'text-blue-600');
+        gridView.classList.add('text-gray-400');
+        productsGrid.className = 'grid grid-cols-1 gap-6';
+      });
+    }
+
+    // Add to cart functionality
+    document.querySelectorAll('.cart-add-btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const productData = {
+          id: this.dataset.productId,
+          name: this.dataset.productName,
+          price: this.dataset.productPrice,
+          image: this.dataset.productImage,
+          slug: this.dataset.productSlug || '',
+          stockQuantity: this.dataset.stockQuantity || '999'
+        };
+        
+        // Get quantity from input if on product page
+        const qtyInput = document.getElementById('quantity-input');
+        const quantity = qtyInput ? parseInt(qtyInput.value) : 1;
+        
+        window.addToCart(productData, quantity);
+      });
+    });
+  });
+</script>

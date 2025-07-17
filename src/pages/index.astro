@@ -1,50 +1,201 @@
 ---
-import { buttonVariants } from '@/components/ui/button';
-import { Github, LayoutDashboard } from 'lucide-react';
-import '@/styles/globals.css'
+import Layout from '../layouts/Layout.astro';
+import { ProductService } from '../lib/services/product';
+import { CategoryService } from '../lib/services/category';
 
-const repoLink = 'https://github.com/cloudflare/templates/tree/main/saas-admin-template';
+// Get featured products and categories
+const { DB } = Astro.locals.runtime.env;
+
+const productService = new ProductService(DB);
+const categoryService = new CategoryService(DB);
+
+const featuredProducts = await productService.getAllProducts({ 
+  featured: true, 
+  limit: 8,
+  status: 'active' 
+});
+
+const categoriesResult = await categoryService.getAllCategories();
+const categories = categoriesResult.data;
 ---
 
-<script is:inline>
-  const getThemePreference = () => {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-      return localStorage.getItem('theme');
-    }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  };
-  const isDark = getThemePreference() === 'dark';
-  document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
- 
-  if (typeof localStorage !== 'undefined') {
-    const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains('dark');
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-  }
-</script>
+<Layout title="SmartGadgets - Electronics for Every Need">
+  <main>
+    <!-- Hero Section -->
+    <section class="relative bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
+      <div class="absolute inset-0 z-0">
+        <img src="/assets/banner_image.avif" alt="Smart Electronics Banner" class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+      </div>
+      <div class="container mx-auto px-4 text-center relative z-10">
+        <h1 class="text-4xl md:text-6xl font-bold mb-6">
+          Smart Electronics for Modern Life
+        </h1>
+        <p class="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
+          Shop phones, computers, and accessories with fast delivery and mobile money payments across Liberia
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/shop" class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+            Shop Now
+          </a>
+          <a href="/contact" class="border-2 border-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors">
+            Contact Us
+          </a>
+        </div>
+      </div>
+    </section>
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
-    <title>SaaS Admin Template</title>
-  </head>
-  <body>
-    <div class="flex flex-col items-center justify-center gap-4 py-20 px-8">
-      <h1 class="text-5xl font-bold">SaaS Admin Template</h1>
-      <p class="text-xl text-muted-foreground">Manage a SaaS application - customers, subscriptions - using Cloudflare Workers and D1.</p>
-      <div class="flex flex gap-4 mt-4">
-        <a class={buttonVariants()} href="/admin">
-          <LayoutDashboard /> Go to admin
-        </a>
-        <a class={buttonVariants({ variant: 'outline' })} href={repoLink}>
-          <Github /> View on GitHub
-        </a>
+    <!-- Trust Badges -->
+    <section class="py-8 bg-gray-50">
+      <div class="container mx-auto px-4">
+        <div class="flex flex-wrap justify-center items-center gap-8 text-center">
+          <div class="flex items-center gap-2">
+            <span class="text-green-600">✓</span>
+            <span class="font-medium">Mobile Money Accepted</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-green-600">✓</span>
+            <span class="font-medium">Fast Delivery</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-green-600">✓</span>
+            <span class="font-medium">Easy Pickup</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-green-600">✓</span>
+            <span class="font-medium">Secure Payments</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category Quick Links -->
+    <section class="py-16">
+      <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-12">Shop by Category</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {categories.map((category) => (
+            <a href={`/shop?category=${category.slug}`} 
+               class="group block bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              <div class="aspect-w-16 aspect-h-9 bg-gray-200">
+                {category.image_url ? (
+                  <img src={category.image_url} alt={category.name} 
+                       class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
+                ) : (
+                  <div class="w-full h-48 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                    <span class="text-white text-4xl font-bold">{category.name.charAt(0)}</span>
+                  </div>
+                )}
+              </div>
+              <div class="p-6">
+                <h3 class="text-xl font-semibold mb-2">{category.name}</h3>
+                <p class="text-gray-600 mb-4">{category.description}</p>
+                <span class="text-blue-600 font-medium group-hover:underline">
+                  Browse {category.product_count} products →
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Featured Products -->
+    <section class="py-16 bg-gray-50">
+      <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-12">Featured Products</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {featuredProducts.products.map((product) => (
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <a href={`/product/${product.slug}`}>
+                <div class="aspect-w-1 aspect-h-1">
+                  {product.featured_image ? (
+                    <img src={product.featured_image} alt={product.name} 
+                         class="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
+                      <span class="text-gray-400">No Image</span>
+                    </div>
+                  )}
+                </div>
+                <div class="p-4">
+                  <h3 class="font-semibold text-lg mb-2 line-clamp-2">{product.name}</h3>
+                  <p class="text-gray-600 text-sm mb-3 line-clamp-2">{product.short_description}</p>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-2xl font-bold text-blue-600">
+                        ${(product.price / 100).toFixed(2)}
+                      </span>
+                      {product.compare_at_price && (
+                        <span class="text-sm text-gray-500 line-through ml-2">
+                          ${(product.compare_at_price / 100).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {product.stock_quantity > 0 ? (
+                    <button class="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors cart-add-btn"
+                            data-product-id={product.id}
+                            data-product-name={product.name}
+                            data-product-price={product.price}
+                            data-product-image={product.featured_image}
+                            data-product-slug={product.slug}
+                            data-stock-quantity={product.stock_quantity}>
+                      Add to Cart
+                    </button>
+                  ) : (
+                    <button class="w-full mt-3 bg-gray-400 text-white py-2 rounded-lg cursor-not-allowed" disabled>
+                      Out of Stock
+                    </button>
+                  )}
+                </div>
+              </a>
+            </div>
+          ))}
+        </div>
+        <div class="text-center mt-12">
+          <a href="/shop" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            View All Products
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- WhatsApp Float Button -->
+    <div class="fixed bottom-6 right-6 z-50">
+      <a href="https://wa.me/231777123456" 
+         class="bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center"
+         title="Chat with us on WhatsApp">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.017 2.017A9.913 9.913 0 0 0 2.069 11.987c0 1.746.455 3.471 1.318 4.986L2.017 22l5.173-1.356a9.864 9.864 0 0 0 4.827 1.273 9.913 9.913 0 0 0 9.948-9.97c0-2.665-1.037-5.173-2.92-7.056A9.913 9.913 0 0 0 12.017 2.017zM12.017 20.956a8.093 8.093 0 0 1-4.096-1.12l-.294-.175-3.044.798.813-2.97-.192-.306a8.081 8.081 0 0 1-1.273-4.34 8.137 8.137 0 0 1 8.086-8.137 8.068 8.068 0 0 1 5.751 2.386 8.068 8.068 0 0 1 2.386 5.751 8.137 8.137 0 0 1-8.137 8.113zm4.456-6.085c-.245-.122-1.448-.714-1.673-.798-.224-.084-.387-.122-.55.122-.163.245-.632.798-.775.963-.143.163-.286.184-.53.061-.245-.122-1.034-.381-1.969-1.217-.727-.651-1.218-1.454-1.361-1.699-.143-.245-.015-.378.107-.5.11-.11.245-.286.367-.428.122-.143.163-.245.245-.408.082-.163.041-.306-.02-.428-.061-.122-.55-1.326-.754-1.815-.199-.477-.401-.413-.55-.421-.143-.007-.306-.009-.469-.009-.163 0-.428.061-.653.306-.224.245-.857.837-.857 2.04 0 1.203.878 2.366 1.001 2.529.122.163 1.726 2.637 4.181 3.698.584.252 1.04.402 1.395.515.587.187 1.122.16 1.544.097.471-.07 1.448-.592 1.652-1.164.204-.571.204-1.061.143-1.164-.061-.102-.224-.163-.469-.286z"/>
+        </svg>
+      </a>
     </div>
-  </body>
-</html>
+  </main>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add to cart functionality
+    document.querySelectorAll('.cart-add-btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const productData = {
+          id: this.dataset.productId,
+          name: this.dataset.productName,
+          price: this.dataset.productPrice,
+          image: this.dataset.productImage,
+          slug: this.dataset.productSlug || '',
+          stockQuantity: this.dataset.stockQuantity || '999'
+        };
+        
+        // Get quantity from input if on product page
+        const qtyInput = document.getElementById('quantity-input');
+        const quantity = qtyInput ? parseInt(qtyInput.value) : 1;
+        
+        window.addToCart(productData, quantity);
+      });
+    });
+  });
+</script>

@@ -1,0 +1,20 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { ProductsTable } from '@/components/admin/products-table';
+
+const { API_TOKEN } = Astro.locals.runtime.env;
+
+if (!API_TOKEN) {
+  return new Response('API token not configured', { status: 500 });
+}
+---
+
+<Layout title="Products">
+  <div class="space-y-6">
+    <div class="bg-white border rounded-lg">
+      <div class="p-6">
+        <ProductsTable client:load apiToken={API_TOKEN} />
+      </div>
+    </div>
+  </div>
+</Layout>

@@ -15,6 +15,9 @@ export type Customer = {
   notes: string;
   created_at: string;
   updated_at: string;
+  order_count: number;
+  total_spent: number;
+  last_order_date?: string;
 };
 
 const columnHelper = createColumnHelper<Customer>();
@@ -45,9 +48,13 @@ const columns: ColumnDef<Customer>[] = [
     header: "Notes",
     cell: (info) => info.getValue(),
   }),
-  columnHelper.accessor("subscription.status", {
-    header: "Subscription",
+  columnHelper.accessor("order_count", {
+    header: "Orders",
     cell: (info) => info.getValue(),
+  }),
+  columnHelper.accessor("total_spent", {
+    header: "Total Spent",
+    cell: (info) => `$${((info.getValue() as number) / 100).toFixed(2)}`,
   }),
   columnHelper.accessor("created_at", {
     header: "Created At",
@@ -57,7 +64,7 @@ const columns: ColumnDef<Customer>[] = [
     header: "Updated At",
     cell: (info) => new Date(info.getValue()).toLocaleDateString(),
   }),
-];
+] as any;
 
 interface DataTableProps {
   data: Customer[];

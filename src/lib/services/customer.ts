@@ -2,53 +2,30 @@ export const CUSTOMER_QUERIES = {
   BASE_SELECT: `
     SELECT 
       customers.*,
-      customer_subscriptions.id as subscription_id,
-      customer_subscriptions.status as subscription_status,
-      subscriptions.name as subscription_name,
-      subscriptions.description as subscription_description,
-      subscriptions.price as subscription_price
+      COUNT(orders.id) as order_count,
+      SUM(orders.total_amount) as total_spent,
+      MAX(orders.order_date) as last_order_date
     FROM customers 
-    LEFT JOIN customer_subscriptions 
-      ON customers.id = customer_subscriptions.customer_id
-    LEFT JOIN subscriptions
-      ON customer_subscriptions.subscription_id = subscriptions.id
+    LEFT JOIN orders ON customers.id = orders.customer_id
+    GROUP BY customers.id
   `,
   INSERT_CUSTOMER: `INSERT INTO customers (name, email, notes) VALUES (?, ?, ?)`,
-  INSERT_CUSTOMER_SUBSCRIPTION: `
-    INSERT INTO customer_subscriptions (customer_id, subscription_id, status) 
-    VALUES (?, ?, ?)
-  `,
   GET_BY_ID: `WHERE customers.id = ?`,
   GET_BY_EMAIL: `WHERE customers.email = ?`,
 };
 
 const processCustomerResults = (rows: any[]) => {
-  const customersMap = new Map();
-
-  rows.forEach((row) => {
-    if (!customersMap.has(row.id)) {
-      const customer = { ...row };
-      if (row.subscription_id) {
-        customer.subscription = {
-          id: row.subscription_id,
-          status: row.subscription_status,
-          name: row.subscription_name,
-          description: row.subscription_description,
-          price: row.subscription_price,
-        };
-      }
-      // Clean up raw join fields
-      delete customer.subscription_id;
-      delete customer.subscription_status;
-      delete customer.subscription_name;
-      delete customer.subscription_description;
-      delete customer.subscription_price;
-
-      customersMap.set(row.id, customer);
-    }
-  });
-
-  return Array.from(customersMap.values());
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    notes: row.notes,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    order_count: row.order_count || 0,
+    total_spent: row.total_spent || 0,
+    last_order_date: row.last_order_date,
+  }));
 };
 
 export class CustomerService {

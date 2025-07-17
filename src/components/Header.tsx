@@ -1,16 +1,17 @@
 import { cn } from "@/lib/utils";
 
 const links = [
+  { href: "/", label: "Home" },
+  { href: "/shop", label: "Shop" },
+  { href: "/contact", label: "Contact" },
   { href: "/admin", label: "Admin" },
-  { href: "/admin/customers", label: "Customers" },
-  { href: "/admin/subscriptions", label: "Subscriptions" },
 ];
 
 export function Header({ currentPath }: { currentPath: string }) {
   return (
     <nav className="flex items-center space-x-4 lg:space-x-6 mx-6 h-16">
-      <a href="/" className="text-sm font-bold leading-none text-foreground">
-        SaaS Admin Template
+      <a href="/" className="text-sm leading-none text-foreground">
+        SmartGadgets
       </a>
       {links.map((link) => (
         <a

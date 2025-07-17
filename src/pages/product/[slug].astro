@@ -1,0 +1,334 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ProductService } from '../../lib/services/product';
+import { CategoryService } from '../../lib/services/category';
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/shop');
+}
+
+const { DB } = Astro.locals.runtime.env;
+
+const productService = new ProductService(DB);
+const categoryService = new CategoryService(DB);
+
+const product = await productService.getProductBySlug(slug);
+
+if (!product) {
+  return Astro.redirect('/shop');
+}
+
+// Parse gallery images safely
+let galleryImages = [];
+if (product.gallery_images) {
+  try {
+    galleryImages = JSON.parse(product.gallery_images);
+  } catch (e) {
+    galleryImages = [];
+  }
+}
+
+// Get category information for breadcrumb
+const category = product.category_id ? await categoryService.getCategoryById(product.category_id) : null;
+
+// Get related products from the same category
+const relatedProducts = product.category_id ? 
+  await productService.getAllProducts({
+    categoryId: product.category_id,
+    status: 'active',
+    limit: 4
+  }) : { products: [], total: 0 };
+
+// Filter out current product from related products
+const filteredRelated = relatedProducts.products.filter(p => p.id !== product.id);
+---
+
+<Layout title={`${product.name} | SmartGadgets`} description={product.short_description}>
+  <main class="min-h-screen bg-white">
+    <div class="container mx-auto px-4 py-8">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-8">
+        <a href="/" class="hover:text-blue-600">Home</a>
+        <span>›</span>
+        <a href="/shop" class="hover:text-blue-600">Shop</a>
+        {category && (
+          <>
+            <span>›</span>
+            <a href={`/shop?category=${category.slug}`} class="hover:text-blue-600">
+              {category.name}
+            </a>
+          </>
+        )}
+        <span>›</span>
+        <span class="text-gray-900">{product.name}</span>
+      </nav>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <!-- Product Images -->
+        <div>
+          <div class="aspect-w-1 aspect-h-1 mb-4">
+            {product.featured_image ? (
+              <img src={product.featured_image} alt={product.name} 
+                   class="w-full h-96 object-cover rounded-lg border"
+                   id="main-image" />
+            ) : (
+              <div class="w-full h-96 bg-gray-200 rounded-lg border flex items-center justify-center">
+                <span class="text-gray-400 text-lg">No Image Available</span>
+              </div>
+            )}
+          </div>
+
+          <!-- Gallery Thumbnails -->
+          {(product.featured_image || galleryImages.length > 0) && (
+            <div class="grid grid-cols-4 gap-2">
+              {product.featured_image && (
+                <button class="aspect-w-1 aspect-h-1 gallery-thumb active" data-image={product.featured_image}>
+                  <img src={product.featured_image} alt={product.name} 
+                       class="w-full h-20 object-cover rounded border-2 border-blue-600" />
+                </button>
+              )}
+              {galleryImages.map((image, index) => (
+                <button class="aspect-w-1 aspect-h-1 gallery-thumb" data-image={image}>
+                  <img src={image} alt={product.name + ' ' + (index + 2)} 
+                       class="w-full h-20 object-cover rounded border-2 border-transparent hover:border-blue-600" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <!-- Product Information -->
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
+          
+          {product.short_description && (
+            <p class="text-lg text-gray-600 mb-6">{product.short_description}</p>
+          )}
+
+          <!-- Price -->
+          <div class="mb-6">
+            <div class="flex items-center space-x-4">
+              <span class="text-4xl font-bold text-blue-600">
+                ${(product.price / 100).toFixed(2)}
+              </span>
+              {product.compare_at_price && product.compare_at_price > product.price && (
+                <>
+                  <span class="text-2xl text-gray-500 line-through">
+                    ${(product.compare_at_price / 100).toFixed(2)}
+                  </span>
+                  <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-sm font-medium">
+                    Save ${((product.compare_at_price - product.price) / 100).toFixed(0)}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <!-- Stock Status -->
+          <div class="mb-6">
+            {product.stock_quantity > 0 ? (
+              <div class="flex items-center space-x-2">
+                <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                <span class="text-green-700 font-medium">
+                  {product.stock_quantity <= 5 ? 'Only ' + product.stock_quantity + ' left in stock' : 'In Stock'}
+                </span>
+              </div>
+            ) : (
+              <div class="flex items-center space-x-2">
+                <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+                <span class="text-red-700 font-medium">Out of Stock</span>
+              </div>
+            )}
+          </div>
+
+          <!-- Add to Cart -->
+          <div class="mb-8">
+            <div class="flex items-center space-x-4">
+              <div class="flex items-center border border-gray-300 rounded">
+                <button class="px-3 py-2 hover:bg-gray-100" id="qty-decrease">-</button>
+                <input type="number" value="1" min="1" max={product.stock_quantity} 
+                       class="w-16 text-center border-0 focus:ring-0" id="quantity-input" />
+                <button class="px-3 py-2 hover:bg-gray-100" id="qty-increase">+</button>
+              </div>
+              
+              {product.stock_quantity > 0 ? (
+                <button class="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium cart-add-btn"
+                        data-product-id={product.id}
+                        data-product-name={product.name}
+                        data-product-price={product.price}
+                        data-product-image={product.featured_image}
+                        data-product-slug={product.slug}
+                        data-stock-quantity={product.stock_quantity}>
+                  Add to Cart
+                </button>
+              ) : (
+                <button class="flex-1 bg-gray-400 text-white py-3 px-6 rounded-lg cursor-not-allowed font-medium" disabled>
+                  Out of Stock
+                </button>
+              )}
+            </div>
+          </div>
+
+          <!-- Trust Badges -->
+          <div class="mb-8 p-4 bg-gray-50 rounded-lg">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex items-center space-x-2">
+                <span class="text-green-600">✓</span>
+                <span class="text-sm">Free delivery available</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-600">✓</span>
+                <span class="text-sm">Secure payment</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-600">✓</span>
+                <span class="text-sm">Easy returns</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-600">✓</span>
+                <span class="text-sm">Warranty included</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product Details -->
+          {product.attributes && product.attributes.length > 0 && (
+            <div class="mb-8">
+              <h3 class="text-lg font-semibold mb-4">Specifications</h3>
+              <div class="space-y-3">
+                {product.attributes.map((attr) => (
+                  <div class="flex">
+                    <span class="w-1/3 text-gray-600 font-medium">{attr.attribute_name}:</span>
+                    <span class="w-2/3 text-gray-900">{attr.attribute_value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <!-- Product Description -->
+      {product.description && (
+        <div class="mt-16">
+          <h2 class="text-2xl font-bold mb-6">Product Description</h2>
+          <div class="prose max-w-none">
+            <p class="text-gray-700 leading-relaxed">{product.description}</p>
+          </div>
+        </div>
+      )}
+
+      <!-- Related Products -->
+      {filteredRelated.length > 0 && (
+        <div class="mt-16">
+          <h2 class="text-2xl font-bold mb-8">Related Products</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredRelated.map((relatedProduct) => (
+              <div class="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                <a href={`/product/${relatedProduct.slug}`}>
+                  <div class="aspect-w-1 aspect-h-1">
+                    {relatedProduct.featured_image ? (
+                      <img src={relatedProduct.featured_image} alt={relatedProduct.name} 
+                           class="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-400">No Image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div class="p-4">
+                    <h3 class="font-semibold mb-2 line-clamp-2">{relatedProduct.name}</h3>
+                    <div class="flex items-center justify-between">
+                      <span class="text-lg font-bold text-blue-600">
+                        ${(relatedProduct.price / 100).toFixed(2)}
+                      </span>
+                      {relatedProduct.compare_at_price && (
+                        <span class="text-sm text-gray-500 line-through">
+                          ${(relatedProduct.compare_at_price / 100).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  </main>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Quantity controls
+    const qtyDecrease = document.getElementById('qty-decrease');
+    const qtyIncrease = document.getElementById('qty-increase');
+    const qtyInput = document.getElementById('quantity-input');
+
+    if (qtyDecrease && qtyIncrease && qtyInput) {
+      qtyDecrease.addEventListener('click', function() {
+        const currentValue = parseInt(qtyInput.value);
+        if (currentValue > 1) {
+          qtyInput.value = currentValue - 1;
+        }
+      });
+
+      qtyIncrease.addEventListener('click', function() {
+        const currentValue = parseInt(qtyInput.value);
+        const maxValue = parseInt(qtyInput.getAttribute('max'));
+        if (currentValue < maxValue) {
+          qtyInput.value = currentValue + 1;
+        }
+      });
+    }
+
+    // Gallery image switching
+    const galleryThumbs = document.querySelectorAll('.gallery-thumb');
+    const mainImage = document.getElementById('main-image');
+
+    galleryThumbs.forEach(thumb => {
+      thumb.addEventListener('click', function() {
+        const newImageSrc = this.getAttribute('data-image');
+        if (mainImage && newImageSrc) {
+          mainImage.src = newImageSrc;
+          
+          // Update active thumbnail
+          galleryThumbs.forEach(t => {
+            t.querySelector('img').classList.remove('border-blue-600');
+            t.querySelector('img').classList.add('border-transparent');
+            t.classList.remove('active');
+          });
+          
+          this.querySelector('img').classList.add('border-blue-600');
+          this.querySelector('img').classList.remove('border-transparent');
+          this.classList.add('active');
+        }
+      });
+    });
+
+    // Add to cart functionality
+    document.querySelectorAll('.cart-add-btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const productData = {
+          id: this.dataset.productId,
+          name: this.dataset.productName,
+          price: this.dataset.productPrice,
+          image: this.dataset.productImage,
+          slug: this.dataset.productSlug || '',
+          stockQuantity: this.dataset.stockQuantity || '999'
+        };
+        
+        // Get quantity from input if on product page
+        const qtyInput = document.getElementById('quantity-input');
+        const quantity = qtyInput ? parseInt(qtyInput.value) : 1;
+        
+        window.addToCart(productData, quantity);
+      });
+    });
+  });
+</script>

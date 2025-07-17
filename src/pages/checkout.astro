@@ -1,0 +1,567 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { CategoryService } from '../lib/services/category';
+
+// Get pickup locations for delivery options
+const { DB } = Astro.locals.runtime.env;
+const categoryService = new CategoryService(DB);
+// Note: We'll need to add a pickup location service, but for now we'll hardcode
+---
+
+<Layout title="Checkout | SmartGadgets">
+  <main class="min-h-screen bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+      <!-- Progress Indicator -->
+      <div class="mb-8">
+        <div class="flex items-center justify-center space-x-4">
+          <div class="flex items-center text-blue-600">
+            <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">1</div>
+            <span class="ml-2 font-medium">Shopping Cart</span>
+          </div>
+          <div class="flex-1 h-px bg-blue-600"></div>
+          <div class="flex items-center text-blue-600">
+            <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">2</div>
+            <span class="ml-2 font-medium">Checkout</span>
+          </div>
+          <div class="flex-1 h-px bg-gray-300"></div>
+          <div class="flex items-center text-gray-400">
+            <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
+            <span class="ml-2">Confirmation</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Checkout Form -->
+        <div class="lg:col-span-2">
+          <div class="bg-white rounded-lg shadow-sm p-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-6">Checkout</h1>
+
+            <form id="checkout-form" class="space-y-8">
+              <!-- Customer Information -->
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label for="customer_name" class="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name *
+                    </label>
+                    <input type="text" 
+                           id="customer_name" 
+                           name="customer_name" 
+                           required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Enter your full name">
+                  </div>
+                  <div>
+                    <label for="customer_email" class="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address *
+                    </label>
+                    <input type="email" 
+                           id="customer_email" 
+                           name="customer_email" 
+                           required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="your@email.com">
+                  </div>
+                  <div>
+                    <label for="customer_phone" class="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number *
+                    </label>
+                    <input type="tel" 
+                           id="customer_phone" 
+                           name="customer_phone" 
+                           required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="+231-XXX-XXX-XXX">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Delivery Method -->
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Delivery Method</h2>
+                <div class="space-y-4">
+                  <div class="border border-gray-300 rounded-lg p-4">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                      <input type="radio" 
+                             name="shipping_method" 
+                             value="pickup" 
+                             checked
+                             class="mt-1 text-blue-600 focus:ring-blue-500">
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                          <span class="font-medium text-gray-900">Store Pickup</span>
+                          <span class="font-medium text-green-600">Free</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">
+                          Pick up your order from our store locations. Ready in 1-2 business days.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                  
+                  <div class="border border-gray-300 rounded-lg p-4">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                      <input type="radio" 
+                             name="shipping_method" 
+                             value="delivery"
+                             class="mt-1 text-blue-600 focus:ring-blue-500">
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                          <span class="font-medium text-gray-900">Home Delivery</span>
+                          <span class="font-medium text-green-600">Free</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">
+                          Get your order delivered to your doorstep. 2-3 business days.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pickup Location (shown when pickup is selected) -->
+              <div id="pickup-section">
+                <h3 class="text-md font-medium text-gray-900 mb-3">Select Pickup Location</h3>
+                <div class="space-y-3">
+                  <label class="flex items-start space-x-3 cursor-pointer border border-gray-300 rounded-lg p-3">
+                    <input type="radio" 
+                           name="pickup_location" 
+                           value="Monrovia Main Store"
+                           checked
+                           class="mt-1 text-blue-600 focus:ring-blue-500">
+                    <div>
+                      <div class="font-medium text-gray-900">Monrovia Main Store</div>
+                      <div class="text-sm text-gray-600">Broad Street, Monrovia, Montserrado County</div>
+                      <div class="text-sm text-gray-600">Mon-Fri: 9:00 AM - 6:00 PM, Sat: 9:00 AM - 3:00 PM</div>
+                    </div>
+                  </label>
+                  
+                  <label class="flex items-start space-x-3 cursor-pointer border border-gray-300 rounded-lg p-3">
+                    <input type="radio" 
+                           name="pickup_location" 
+                           value="Paynesville Branch"
+                           class="mt-1 text-blue-600 focus:ring-blue-500">
+                    <div>
+                      <div class="font-medium text-gray-900">Paynesville Branch</div>
+                      <div class="text-sm text-gray-600">Paynesville Red Light Market, Montserrado County</div>
+                      <div class="text-sm text-gray-600">Mon-Sat: 8:00 AM - 5:00 PM</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Delivery Address (shown when delivery is selected) -->
+              <div id="delivery-section" class="hidden">
+                <h3 class="text-md font-medium text-gray-900 mb-3">Delivery Address</h3>
+                <div class="space-y-4">
+                  <div>
+                    <label for="shipping_address" class="block text-sm font-medium text-gray-700 mb-1">
+                      Street Address *
+                    </label>
+                    <textarea id="shipping_address" 
+                              name="shipping_address" 
+                              rows="3"
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter your complete delivery address including landmarks"></textarea>
+                  </div>
+                  <div>
+                    <label for="delivery_instructions" class="block text-sm font-medium text-gray-700 mb-1">
+                      Delivery Instructions (Optional)
+                    </label>
+                    <textarea id="delivery_instructions" 
+                              name="delivery_instructions" 
+                              rows="2"
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Any special instructions for delivery"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payment Method -->
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Payment Method</h2>
+                <div class="space-y-4">
+                  <!-- Mobile Money -->
+                  <div class="border border-gray-300 rounded-lg p-4">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                      <input type="radio" 
+                             name="payment_method" 
+                             value="mobile_money" 
+                             checked
+                             class="mt-1 text-blue-600 focus:ring-blue-500">
+                      <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                          <span class="font-medium text-gray-900">Mobile Money</span>
+                          <div class="flex space-x-2">
+                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">MTN</span>
+                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">Orange</span>
+                          </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">
+                          Pay securely with MTN Money or Orange Money
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <!-- Card Payment -->
+                  <div class="border border-gray-300 rounded-lg p-4">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                      <input type="radio" 
+                             name="payment_method" 
+                             value="card"
+                             class="mt-1 text-blue-600 focus:ring-blue-500">
+                      <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                          <span class="font-medium text-gray-900">Credit/Debit Card</span>
+                          <div class="flex space-x-1">
+                            <span class="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">VISA</span>
+                            <span class="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">MC</span>
+                          </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">
+                          Pay with your Visa or Mastercard
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <!-- Cash on Delivery -->
+                  <div class="border border-gray-300 rounded-lg p-4">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                      <input type="radio" 
+                             name="payment_method" 
+                             value="cash_on_delivery"
+                             class="mt-1 text-blue-600 focus:ring-blue-500">
+                      <div class="flex-1">
+                        <span class="font-medium text-gray-900">Cash on Delivery/Pickup</span>
+                        <p class="text-sm text-gray-600 mt-1">
+                          Pay when you receive your order
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Order Notes -->
+              <div>
+                <label for="customer_notes" class="block text-sm font-medium text-gray-700 mb-1">
+                  Order Notes (Optional)
+                </label>
+                <textarea id="customer_notes" 
+                          name="customer_notes" 
+                          rows="3"
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Any special requests or notes for your order"></textarea>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="lg:col-span-1">
+          <div class="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+            <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+            
+            <!-- Cart Items Summary -->
+            <div class="space-y-3 mb-6 max-h-64 overflow-y-auto" id="checkout-cart-items">
+              <!-- Items will be loaded here -->
+            </div>
+
+            <!-- Discount Code -->
+            <div class="mb-6">
+              <div class="flex">
+                <input type="text" 
+                       id="discount-code-input" 
+                       placeholder="Discount code"
+                       class="flex-1 border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button type="button"
+                        class="bg-gray-200 text-gray-700 px-4 py-2 rounded-r-lg hover:bg-gray-300 transition-colors"
+                        id="apply-discount-btn">
+                  Apply
+                </button>
+              </div>
+              <div id="discount-applied" class="hidden mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                Discount applied successfully!
+              </div>
+              <div id="discount-error" class="hidden mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                Invalid discount code
+              </div>
+            </div>
+
+            <!-- Order Totals -->
+            <div class="space-y-3 mb-6">
+              <div class="flex justify-between text-gray-600">
+                <span>Subtotal (<span id="checkout-item-count">0</span> items)</span>
+                <span id="checkout-subtotal">$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-600">
+                <span>Discount</span>
+                <span id="checkout-discount" class="text-green-600">-$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-600">
+                <span>Shipping</span>
+                <span class="text-green-600">Free</span>
+              </div>
+              <div class="flex justify-between text-gray-600">
+                <span>Tax</span>
+                <span>$0.00</span>
+              </div>
+              <hr>
+              <div class="flex justify-between text-lg font-semibold">
+                <span>Total</span>
+                <span id="checkout-total">$0.00</span>
+              </div>
+            </div>
+
+            <!-- Place Order Button -->
+            <button type="submit" 
+                    form="checkout-form"
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    id="place-order-btn">
+              <span id="place-order-text">Place Order</span>
+              <div id="place-order-loading" class="hidden flex items-center justify-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </div>
+            </button>
+
+            <!-- Trust Badges -->
+            <div class="mt-6 pt-6 border-t border-gray-200">
+              <div class="flex items-center justify-center space-x-4 text-sm text-gray-600">
+                <div class="flex items-center space-x-1">
+                  <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span>Secure checkout</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span>Safe payments</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Import CartService dynamically since it's a client-side module
+    const cartService = new window.CartService();
+    let currentCart = cartService.getCart();
+    let appliedDiscount = null;
+
+    // Redirect if cart is empty
+    if (currentCart.items.length === 0) {
+      window.location.href = '/cart';
+      return;
+    }
+
+    // DOM elements
+    const shippingMethodInputs = document.querySelectorAll('input[name="shipping_method"]');
+    const pickupSection = document.getElementById('pickup-section');
+    const deliverySection = document.getElementById('delivery-section');
+    const shippingAddressField = document.getElementById('shipping_address');
+    const checkoutForm = document.getElementById('checkout-form');
+    const placeOrderBtn = document.getElementById('place-order-btn');
+    const placeOrderText = document.getElementById('place-order-text');
+    const placeOrderLoading = document.getElementById('place-order-loading');
+
+    // Discount elements
+    const discountInput = document.getElementById('discount-code-input');
+    const applyDiscountBtn = document.getElementById('apply-discount-btn');
+    const discountApplied = document.getElementById('discount-applied');
+    const discountError = document.getElementById('discount-error');
+
+    function formatPrice(cents) {
+      return `$${(cents / 100).toFixed(2)}`;
+    }
+
+    function updateOrderSummary() {
+      const cart = currentCart;
+      let subtotal = cart.total;
+      let discountAmount = 0;
+
+      // Apply discount if available
+      if (appliedDiscount) {
+        if (appliedDiscount.type === 'percentage') {
+          discountAmount = Math.round(subtotal * appliedDiscount.value / 100);
+          if (appliedDiscount.maximum_discount_amount) {
+            discountAmount = Math.min(discountAmount, appliedDiscount.maximum_discount_amount);
+          }
+        } else {
+          discountAmount = appliedDiscount.value;
+        }
+      }
+
+      const total = subtotal - discountAmount;
+
+      // Update display
+      document.getElementById('checkout-item-count').textContent = cart.item_count;
+      document.getElementById('checkout-subtotal').textContent = formatPrice(subtotal);
+      document.getElementById('checkout-discount').textContent = formatPrice(-discountAmount);
+      document.getElementById('checkout-total').textContent = formatPrice(total);
+
+      // Update cart items display
+      const cartItemsContainer = document.getElementById('checkout-cart-items');
+      cartItemsContainer.innerHTML = cart.items.map(item => `
+        <div class="flex items-center space-x-3 py-2">
+          <div class="flex-shrink-0">
+            ${item.image ? 
+              `<img src="${item.image}" alt="${item.name}" class="w-12 h-12 object-cover rounded" />` :
+              `<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                 <span class="text-gray-400 text-xs">No Image</span>
+               </div>`
+            }
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">${item.name}</p>
+            <p class="text-sm text-gray-500">Qty: ${item.quantity}</p>
+          </div>
+          <div class="text-sm font-medium text-gray-900">
+            ${formatPrice(item.price * item.quantity)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Handle shipping method changes
+    shippingMethodInputs.forEach(input => {
+      input.addEventListener('change', function() {
+        if (this.value === 'pickup') {
+          pickupSection.classList.remove('hidden');
+          deliverySection.classList.add('hidden');
+          shippingAddressField.required = false;
+        } else {
+          pickupSection.classList.add('hidden');
+          deliverySection.classList.remove('hidden');
+          shippingAddressField.required = true;
+        }
+      });
+    });
+
+    // Handle discount code application
+    applyDiscountBtn.addEventListener('click', async function() {
+      const code = discountInput.value.trim().toUpperCase();
+      
+      if (!code) return;
+
+      try {
+        const response = await fetch('/api/discount-codes/validate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: code,
+            order_amount: currentCart.total
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          appliedDiscount = result.data;
+          discountApplied.classList.remove('hidden');
+          discountError.classList.add('hidden');
+          discountInput.disabled = true;
+          applyDiscountBtn.textContent = 'Applied';
+          applyDiscountBtn.disabled = true;
+          updateOrderSummary();
+        } else {
+          discountError.classList.remove('hidden');
+          discountApplied.classList.add('hidden');
+          discountError.textContent = result.error || 'Invalid discount code';
+        }
+      } catch (error) {
+        console.error('Error applying discount:', error);
+        discountError.classList.remove('hidden');
+        discountApplied.classList.add('hidden');
+        discountError.textContent = 'Error applying discount code';
+      }
+    });
+
+    // Handle form submission
+    checkoutForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      // Disable submit button and show loading
+      placeOrderBtn.disabled = true;
+      placeOrderText.classList.add('hidden');
+      placeOrderLoading.classList.remove('hidden');
+
+      try {
+        const formData = new FormData(this);
+        const orderData = {
+          customer_name: formData.get('customer_name'),
+          customer_email: formData.get('customer_email'),
+          customer_phone: formData.get('customer_phone'),
+          shipping_method: formData.get('shipping_method'),
+          shipping_address: formData.get('shipping_address'),
+          pickup_location: formData.get('pickup_location'),
+          delivery_instructions: formData.get('delivery_instructions'),
+          payment_method: formData.get('payment_method'),
+          customer_notes: formData.get('customer_notes'),
+          discount_code: appliedDiscount ? appliedDiscount.code : null,
+          items: currentCart.items.map(item => ({
+            product_id: item.id,
+            quantity: item.quantity,
+            unit_price: item.price
+          }))
+        };
+
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Clear cart
+          cartService.clearCart();
+          
+          // Handle payment if needed
+          if (orderData.payment_method === 'mobile_money') {
+            // Redirect to mobile money payment
+            window.location.href = `/payment/mobile-money/${result.data.id}`;
+          } else if (orderData.payment_method === 'card') {
+            // Redirect to card payment
+            window.location.href = `/payment/card/${result.data.id}`;
+          } else {
+            // Cash on delivery - go directly to confirmation
+            window.location.href = `/order-confirmed/${result.data.order_number}`;
+          }
+        } else {
+          throw new Error(result.error || 'Failed to create order');
+        }
+      } catch (error) {
+        console.error('Error placing order:', error);
+        alert('Error placing order: ' + error.message);
+        
+        // Re-enable submit button
+        placeOrderBtn.disabled = false;
+        placeOrderText.classList.remove('hidden');
+        placeOrderLoading.classList.add('hidden');
+      }
+    });
+
+    // Initialize display
+    updateOrderSummary();
+  });
+</script>

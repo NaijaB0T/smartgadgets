@@ -1,23 +1,23 @@
 ---
-import { BadgeDollarSign, CalendarSync, User } from 'lucide-react';
+import { Package, ShoppingCart, User } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import { APIDocumentation } from '@/components/admin/api-documentation';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
 import { CustomerService } from '@/lib/services/customer';
-import { SubscriptionService } from '@/lib/services/subscription';
-import { CustomerSubscriptionService } from '@/lib/services/customer_subscription';
+import { ProductService } from '@/lib/services/product';
+import { OrderService } from '@/lib/services/order';
 
 const { DB } = Astro.locals.runtime.env;
 
 const customerService = new CustomerService(DB);
-const subscriptionService = new SubscriptionService(DB);
-const customerSubscriptionService = new CustomerSubscriptionService(DB);
+const productService = new ProductService(DB);
+const orderService = new OrderService(DB);
 
 const customers = await customerService.getAll();
-const subscriptions = await subscriptionService.getAll();
-const customerSubscriptions = await customerSubscriptionService.getAll();
+const products = await productService.getAllProducts({ limit: 1000 });
+const orders = await orderService.getAllOrders({ limit: 1000 });
 
 const data = [
   {
@@ -27,15 +27,16 @@ const data = [
     href: '/admin/customers'
   },
   {
-    name: 'Subscriptions',
-    value: subscriptions.length,
-    icon: BadgeDollarSign,
-    href: '/admin/subscriptions'
+    name: 'Products',
+    value: products.products.length,
+    icon: Package,
+    href: '/admin/products'
   },
   {
-    name: 'Customer Subscriptions',
-    value: customerSubscriptions.length,
-    icon: CalendarSync
+    name: 'Orders',
+    value: orders.orders.length,
+    icon: ShoppingCart,
+    href: '/admin/orders'
   }
 ]
 ---

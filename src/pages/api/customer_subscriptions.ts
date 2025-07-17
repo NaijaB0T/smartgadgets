@@ -1,7 +1,7 @@
 import { validateApiTokenResponse } from "@/lib/api";
 import { CustomerSubscriptionService } from "@/lib/services/customer_subscription";
 
-export async function GET({ locals, params, request }) {
+export async function GET({ locals, params, request }: any) {
   const { API_TOKEN, DB } = locals.runtime.env;
 
   const invalidTokenResponse = await validateApiTokenResponse(
