@@ -11,7 +11,8 @@
   },
   "upload_source_maps": true,
   "vars": {
-    "EXAMPLE_VALUE": "example_value"
+    "EXAMPLE_VALUE": "example_value",
+    "API_TOKEN": "admin-token-12345"
   },
   "d1_databases": [
     {
